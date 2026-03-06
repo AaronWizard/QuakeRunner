@@ -182,4 +182,3 @@ void QuakeRunner::saveSetting(QAnyStringView settingName, QVariant settingValue)
     QSettings settings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION);
     settings.setValue(settingName, settingValue);
 }
-
