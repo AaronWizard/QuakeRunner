@@ -4,6 +4,7 @@
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <QSettings>
+#include <QScrollBar>
 
 const QString SETTINGS_ORGANIZATION = "AaronWizard";
 const QString SETTINGS_APPLICATION = "Quake Runner";
@@ -20,6 +21,8 @@ const QString MOD_ID1 = "id1";
 const QString COMMAND_ARGUMENT_BASEDIR = "-basedir";
 const QString COMMAND_ARGUMENT_GAME = "-game";
 
+const QString LOG_FAILED_TO_RUN = "Failed to run.";
+
 QuakeRunner::QuakeRunner(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::QuakeRunner)
@@ -28,7 +31,12 @@ QuakeRunner::QuakeRunner(QWidget *parent)
     ui->setupUi(this);
 
     initFields();
-    connect(quakeProcess, &QProcess::finished, this, &QuakeRunner::quakeProcessFinished);
+
+    connect(quakeProcess, &QProcess::finished, this, &QuakeRunner::onQuakeProcessFinished);
+    connect(quakeProcess, &QProcess::errorOccurred, this, &QuakeRunner::onQuakeProcessErrorOccurred);
+
+    connect(quakeProcess, &QProcess::readyReadStandardOutput, this, &QuakeRunner::onQuakeReadStandardOutput);
+    connect(quakeProcess, &QProcess::readyReadStandardError, this, &QuakeRunner::onQuakeReadStandardError);
 }
 
 QuakeRunner::~QuakeRunner()
@@ -77,12 +85,34 @@ void QuakeRunner::on_comboMod_currentIndexChanged(int index)
 
 void QuakeRunner::on_btnRun_clicked()
 {
-    ui->btnRun->setEnabled(false);
+    startQuake();
+}
 
-    QString quakePath = ui->txtQuakePath->text();
-    QStringList arguments = getQuakeArguments();
+void QuakeRunner::onQuakeProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    Q_UNUSED(exitCode);
+    Q_UNUSED(exitStatus);
 
-    quakeProcess->start(quakePath, arguments);
+    quakeEnded();
+}
+
+void QuakeRunner::onQuakeProcessErrorOccurred(QProcess::ProcessError error)
+{
+    Q_UNUSED(error);
+    appendLog(LOG_FAILED_TO_RUN);
+    quakeEnded();
+}
+
+void QuakeRunner::onQuakeReadStandardOutput()
+{
+    const QByteArray data = quakeProcess->readAllStandardOutput();
+    appendLog(QString::fromUtf8(data));
+}
+
+void QuakeRunner::onQuakeReadStandardError()
+{
+    const QByteArray data = quakeProcess->readAllStandardError();
+    appendLog(QString::fromUtf8(data));
 }
 
 void QuakeRunner::initFields()
@@ -94,14 +124,6 @@ void QuakeRunner::initFields()
     ui->comboMod->setCurrentIndex(getIntSetting(SETTING_MOD_INDEX));
 
     stillLoading = false;
-}
-
-void QuakeRunner::quakeProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
-{
-    Q_UNUSED(exitCode);
-    Q_UNUSED(exitStatus);
-
-    ui->btnRun->setEnabled(true);
 }
 
 void QuakeRunner::browseForPath(QLineEdit &field, const bool pathIsFolder, const QString &caption, const QString &startDir)
@@ -181,4 +203,42 @@ void QuakeRunner::saveSetting(QAnyStringView settingName, QVariant settingValue)
 {
     QSettings settings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION);
     settings.setValue(settingName, settingValue);
+}
+
+void QuakeRunner::startQuake()
+{
+    setFieldsEnabled(false);
+    ui->txtLog->clear();
+
+    QString quakePath = ui->txtQuakePath->text();
+    QStringList arguments = getQuakeArguments();
+
+    quakeProcess->start(quakePath, arguments);
+}
+
+void QuakeRunner::quakeEnded()
+{
+    setFieldsEnabled(true);
+}
+
+void QuakeRunner::appendLog(const QString &text)
+{
+    QTextCursor cursor = ui->txtLog->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    cursor.insertText(text);
+
+    QScrollBar *sb = ui->txtLog->verticalScrollBar();
+    sb->setValue(sb->maximum());
+
+    ui->txtLog->repaint();
+}
+
+void QuakeRunner::setFieldsEnabled(const bool enabled)
+{
+    ui->txtQuakePath->setEnabled(enabled);
+    ui->txtBaseFolder->setEnabled(enabled);
+    ui->btnBrowseQuakePath->setEnabled(enabled);
+    ui->btnBrowseBaseFolder->setEnabled(enabled);
+    ui->comboMod->setEnabled(enabled);
+    ui->btnRun->setEnabled(enabled);
 }

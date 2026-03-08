@@ -22,15 +22,15 @@ public:
 private slots:
     void on_btnBrowseQuakePath_clicked();
     void on_txtQuakePath_textChanged(const QString &arg1);
-
     void on_btnBrowseBaseFolder_clicked();
     void on_txtBaseFolder_textChanged(const QString &baseFolderPath);
-
     void on_comboMod_currentIndexChanged(int index);
-
     void on_btnRun_clicked();
 
-    void quakeProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
+    void onQuakeProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
+    void onQuakeProcessErrorOccurred(QProcess::ProcessError error);
+    void onQuakeReadStandardOutput();
+    void onQuakeReadStandardError();
 
 private:
     Ui::QuakeRunner *ui;
@@ -48,5 +48,11 @@ private:
     QString getStringSetting(const QString &settingName) const;
     int getIntSetting(const QString &settingName) const;
     void saveSetting(QAnyStringView settingName, QVariant settingValue);
+
+    void startQuake();
+    void quakeEnded();
+
+    void appendLog(const QString &text);
+    void setFieldsEnabled(const bool enabled);
 };
 #endif // QUAKERUNNER_H
